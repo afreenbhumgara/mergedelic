@@ -1,0 +1,949 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>MERGEDELIC</title>
+<meta name="description" content="Drop and merge the cosmic blooms. A trippy pop-art merge game." />
+<meta name="theme-color" content="#21043f" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Baloo+2:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1b0635;
+    --cream: #fff3da;
+    --pink: #ff2d95;
+    --grape: #7b2ff7;
+    --tang: #ff8c1a;
+    --teal: #16d3c4;
+    --lime: #b6f500;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: #170228;
+    font-family: 'Fredoka', system-ui, sans-serif;
+    color: var(--cream);
+    touch-action: none;
+    user-select: none; -webkit-user-select: none;
+  }
+  #wrap {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; padding: 10px;
+  }
+  #hud {
+    width: min(94vw, 470px);
+    display: flex; align-items: stretch; gap: 10px;
+  }
+  .panel {
+    background: rgba(255, 243, 218, 0.1);
+    border: 3px solid rgba(255, 243, 218, 0.85);
+    border-radius: 18px;
+    padding: 7px 14px;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 6px 0 rgba(27, 6, 53, 0.5);
+  }
+  #scorebox { flex: 1; display: flex; flex-direction: column; line-height: 1; }
+  .label { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.75; }
+  #score { font-family: 'Baloo 2', cursive; font-weight: 800; font-size: 34px; }
+  #bestbox { display: flex; flex-direction: column; justify-content: center; text-align: right; min-width: 84px; }
+  #best { font-family: 'Baloo 2', cursive; font-weight: 800; font-size: 22px; }
+  #mute {
+    width: 50px; display: flex; align-items: center; justify-content: center;
+    font-size: 24px; cursor: pointer; padding: 0;
+  }
+  #stage-holder { position: relative; }
+  canvas#game {
+    display: block;
+    border-radius: 26px;
+    box-shadow: 0 14px 0 rgba(27,6,53,.6), 0 0 60px rgba(255,45,149,.35);
+    cursor: pointer;
+  }
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; text-align: center; padding: 20px;
+    border-radius: 26px;
+    background: radial-gradient(120% 120% at 50% 20%, rgba(123,47,247,.78), rgba(23,2,40,.92));
+    backdrop-filter: blur(3px);
+    transition: opacity .35s ease, visibility .35s ease;
+  }
+  .overlay.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+  .title {
+    font-family: 'Baloo 2', cursive; font-weight: 800;
+    font-size: clamp(40px, 11vw, 66px); line-height: .92; margin: 0;
+    letter-spacing: 1px;
+    background: linear-gradient(95deg, var(--lime), var(--teal), var(--pink), var(--tang), var(--lime));
+    background-size: 300% 100%;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    -webkit-text-stroke: 3px var(--ink);
+    filter: drop-shadow(0 5px 0 rgba(27,6,53,.55));
+    animation: hue 6s linear infinite;
+  }
+  @keyframes hue { to { background-position: 300% 0; } }
+  .sub { font-size: 17px; max-width: 320px; opacity: .95; }
+  .big { font-family: 'Baloo 2', cursive; font-weight: 800; font-size: 26px; }
+  button.play {
+    font-family: 'Baloo 2', cursive; font-weight: 800; font-size: 22px;
+    color: var(--ink); background: var(--lime);
+    border: 4px solid var(--ink); border-radius: 999px;
+    padding: 12px 34px; cursor: pointer;
+    box-shadow: 0 7px 0 var(--ink);
+    transition: transform .08s ease, box-shadow .08s ease, background-color .2s ease;
+  }
+  button.play:hover { background: var(--teal); }
+  button.play:active { transform: translateY(5px); box-shadow: 0 2px 0 var(--ink); }
+  .hint { font-size: 14px; opacity: .8; }
+  #combo {
+    position: absolute; left: 50%; top: 16%; transform: translateX(-50%) scale(0);
+    font-family: 'Baloo 2', cursive; font-weight: 800; font-size: 40px;
+    color: var(--lime); -webkit-text-stroke: 3px var(--ink);
+    pointer-events: none; opacity: 0;
+  }
+  #banner {
+    position: absolute; left: 50%; top: 32%; transform: translateX(-50%) scale(0);
+    font-family: 'Baloo 2', cursive; font-weight: 800; font-size: clamp(28px, 8vw, 46px);
+    color: var(--tang); -webkit-text-stroke: 3px var(--ink);
+    text-align: center; width: 92%;
+    pointer-events: none; opacity: 0;
+  }
+  button.play.revive { background: var(--tang); }
+  button.play.revive:hover { background: var(--pink); }
+  button.play.ghost {
+    background: transparent; color: var(--cream);
+    border-color: var(--cream); box-shadow: 0 6px 0 rgba(27,6,53,.5);
+    font-size: 18px; padding: 10px 26px;
+  }
+  button.play.ghost:hover { background: rgba(255,243,218,.15); }
+  .modes { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  button.play.mode { font-size: 20px; padding: 12px 24px; }
+  button.play.mode.endless { background: var(--teal); }
+  button.play.mode.endless:hover { background: var(--lime); }
+  .overlay.garden { justify-content: flex-start; overflow-y: auto; padding-top: 24px; gap: 14px; }
+  #gardenProgress { font-family: 'Baloo 2', cursive; font-weight: 800; font-size: 17px; opacity: .9; margin: 0; }
+  #gardenGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; max-width: 340px; }
+  .slot {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    background: rgba(255,243,218,.08); border: 2px solid rgba(255,243,218,.25);
+    border-radius: 16px; padding: 8px 4px 6px;
+  }
+  .slot canvas { width: 66px; height: 66px; }
+  .sname { font-size: 12px; font-weight: 600; text-align: center; line-height: 1; }
+  .scount { font-size: 11px; opacity: .7; min-height: 13px; }
+</style>
+</head>
+<body>
+  <div id="wrap">
+    <div id="hud">
+      <div class="panel" id="scorebox">
+        <span class="label">score</span>
+        <span id="score">0</span>
+      </div>
+      <div class="panel" id="bestbox">
+        <span class="label">best</span>
+        <span id="best">0</span>
+      </div>
+      <div class="panel" id="mute" role="button" aria-label="toggle sound">🔊</div>
+    </div>
+    <div id="stage-holder">
+      <canvas id="game"></canvas>
+      <div id="combo"></div>
+      <div id="banner"></div>
+      <div class="overlay" id="start">
+        <h1 class="title">MERGE<br>DELIC</h1>
+        <p class="sub">drop the cosmic blooms. same ones fuse into bigger, weirder ones. don't let the jar overflow.</p>
+        <div class="modes">
+          <button class="play mode" id="dailyBtn">☀ daily</button>
+          <button class="play mode endless" id="endlessBtn">∞ endless</button>
+        </div>
+        <button class="play ghost" id="gardenBtn" style="font-size:16px;padding:8px 22px">🌿 my garden</button>
+        <p class="hint" id="startHint">move to aim • tap to drop</p>
+      </div>
+      <div class="overlay hide" id="over">
+        <h1 class="title" style="font-size:clamp(38px,10vw,60px)">GAME<br>OVER</h1>
+        <p class="big" id="finalScore">0</p>
+        <p id="finalBloom" class="sub"></p>
+        <button class="play revive" id="reviveBtn">↻ keep going</button>
+        <button class="play" id="againBtn">new game ↺</button>
+        <button class="play ghost" id="shareBtn">share my score ➦</button>
+      </div>
+      <div class="overlay garden hide" id="garden">
+        <h1 class="title" style="font-size:clamp(34px,9vw,52px)">GARDEN</h1>
+        <p id="gardenProgress">0 / 11 discovered</p>
+        <div id="gardenGrid"></div>
+        <button class="play" id="gardenBack">back ◂</button>
+      </div>
+    </div>
+  </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.20.0/matter.min.js"></script>
+<script>
+const { Engine, World, Bodies, Body, Events, Composite } = Matter;
+
+const W = 480, H = 660;
+const WALL = 14;
+const DROP_Y = 64;
+const DANGER_Y = 116;
+
+const PALETTE = ['#ff2d95','#ff8c1a','#ffd60a','#b6f500','#16d3c4','#3aa0ff','#7b2ff7','#ff5db1','#ff6b3d','#19e08a','#f7e017'];
+const TIERS = [
+  { r: 17,  petals: 6,  eyes: 2 },
+  { r: 24,  petals: 7,  eyes: 2 },
+  { r: 32,  petals: 8,  eyes: 2 },
+  { r: 42,  petals: 8,  eyes: 2 },
+  { r: 54,  petals: 9,  eyes: 3 },
+  { r: 66,  petals: 10, eyes: 3 },
+  { r: 80,  petals: 11, eyes: 4 },
+  { r: 96,  petals: 12, eyes: 4 },
+  { r: 114, petals: 14, eyes: 5 },
+  { r: 134, petals: 16, eyes: 6 },
+  { r: 158, petals: 20, eyes: 7 },
+];
+const SCORE_TABLE = [1,3,6,10,15,21,28,36,45,55,66];
+const NAMES = ['seedling','sprout','bud','daisy','bloom','mushroom','third eye','lotus','planet','nebula','galaxy'];
+const DROP_POOL = [0,0,0,1,1,1,2,2,3,4];
+const TIER_EMOJI = ['🌱','🌿','🌼','🌻','🌸','🍄','👁️','🪷','🪐','🌀','🌌'];
+let rng = Math.random;
+function randDropTier() { return DROP_POOL[Math.floor(rng() * DROP_POOL.length)]; }
+function makeRng(seed) {
+  return function () {
+    seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function dayKey(offset) {
+  const d = new Date(Date.now() - (offset || 0) * 86400000);
+  return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+}
+function loadDaily() { try { return JSON.parse(localStorage.getItem('mergedelic_daily') || '{}'); } catch (e) { return {}; } }
+function saveDaily(o) { localStorage.setItem('mergedelic_daily', JSON.stringify(o)); }
+
+const canvas = document.getElementById('game');
+let ctx = canvas.getContext('2d');
+const scoreEl = document.getElementById('score');
+const bestEl = document.getElementById('best');
+const comboEl = document.getElementById('combo');
+const muteEl = document.getElementById('mute');
+const startOverlay = document.getElementById('start');
+const overOverlay = document.getElementById('over');
+const finalScoreEl = document.getElementById('finalScore');
+const finalBloomEl = document.getElementById('finalBloom');
+const reviveBtn = document.getElementById('reviveBtn');
+const shareBtn = document.getElementById('shareBtn');
+const bannerEl = document.getElementById('banner');
+const startHint = document.getElementById('startHint');
+const dailyBtn = document.getElementById('dailyBtn');
+const endlessBtn = document.getElementById('endlessBtn');
+const gardenBtn = document.getElementById('gardenBtn');
+const gardenBackBtn = document.getElementById('gardenBack');
+const gardenOverlay = document.getElementById('garden');
+const gardenGrid = document.getElementById('gardenGrid');
+const gardenProgress = document.getElementById('gardenProgress');
+
+const state = {
+  engine: null,
+  running: false,
+  score: 0,
+  best: Number(localStorage.getItem('mergedelic_best') || 0),
+  dropX: W / 2,
+  nextTier: 0,
+  queuedTier: 0,
+  canDrop: true,
+  overTimer: 0,
+  shake: 0,
+  flash: 0,
+  bgPulse: 0,
+  combo: 0,
+  comboTimer: 0,
+  maxTier: -1,
+  revived: false,
+  mode: 'endless',
+  muted: localStorage.getItem('mergedelic_muted') === '1',
+  particles: [],
+  pops: [],
+  mergeQueue: [],
+  phases: new Map(),
+  time: 0,
+};
+
+bestEl.textContent = state.best;
+muteEl.textContent = state.muted ? '🔇' : '🔊';
+const savedBloom = Number(localStorage.getItem('mergedelic_bloom') || 0);
+if (savedBloom > 0) startHint.textContent = 'biggest bloom yet: ' + NAMES[savedBloom] + ' • tap to drop';
+const dailyState = loadDaily();
+if (dailyState.streak > 0) dailyBtn.textContent = '☀ daily 🔥' + dailyState.streak;
+
+let audioCtx = null;
+function initAudio() {
+  if (audioCtx || state.muted) return;
+  try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { audioCtx = null; }
+}
+const PENTA = [0,2,4,7,9,12,14,16,19,21,24];
+function blip(tier) {
+  if (!audioCtx || state.muted) return;
+  const base = 196;
+  const semis = PENTA[Math.min(tier, PENTA.length - 1)];
+  const freq = base * Math.pow(2, semis / 12);
+  const t = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = tier > 6 ? 'sawtooth' : 'triangle';
+  o.frequency.setValueAtTime(freq, t);
+  o.frequency.exponentialRampToValueAtTime(freq * 1.5, t + 0.08);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.22, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(t); o.stop(t + 0.34);
+}
+function thud() {
+  if (!audioCtx || state.muted) return;
+  const t = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(150, t);
+  o.frequency.exponentialRampToValueAtTime(60, t + 0.12);
+  g.gain.setValueAtTime(0.18, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(t); o.stop(t + 0.18);
+}
+
+let dpr = 1, sx = 1, sy = 1;
+function fit() {
+  const holder = document.getElementById('stage-holder');
+  const hudH = document.getElementById('hud').offsetHeight;
+  const availH = window.innerHeight - hudH - 44;
+  const availW = Math.min(window.innerWidth - 20, 470);
+  let dispW = availW;
+  let dispH = dispW * (H / W);
+  if (dispH > availH) { dispH = availH; dispW = dispH * (W / H); }
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.style.width = dispW + 'px';
+  canvas.style.height = dispH + 'px';
+  canvas.width = Math.round(dispW * dpr);
+  canvas.height = Math.round(dispH * dpr);
+  sx = canvas.width / W; sy = canvas.height / H;
+}
+window.addEventListener('resize', fit);
+fit();
+
+function makeBody(tier, x, y) {
+  const t = TIERS[tier];
+  const b = Bodies.circle(x, y, t.r, {
+    restitution: 0.18,
+    friction: 0.45,
+    frictionStatic: 0.6,
+    density: 0.0014,
+    slop: 0.02,
+  });
+  b.tier = tier;
+  b.born = state.time;
+  b.pop = 1.35;
+  state.phases.set(b.id, Math.random() * Math.PI * 2);
+  return b;
+}
+
+function setupWorld() {
+  state.engine = Engine.create();
+  state.engine.gravity.y = 1.05;
+  const opts = { isStatic: true, restitution: 0.1, friction: 0.6 };
+  const floor = Bodies.rectangle(W/2, H + 40, W + 200, 80, opts);
+  const left = Bodies.rectangle(-40 + WALL, H/2, 80, H * 2, opts);
+  const right = Bodies.rectangle(W + 40 - WALL, H/2, 80, H * 2, opts);
+  World.add(state.engine.world, [floor, left, right]);
+
+  Events.on(state.engine, 'collisionStart', (ev) => {
+    for (const pair of ev.pairs) {
+      const a = pair.bodyA, b = pair.bodyB;
+      if (a.tier === undefined || b.tier === undefined) continue;
+      if (a.tier !== b.tier) continue;
+      if (a.merging || b.merging) continue;
+      if (a.tier >= TIERS.length - 1) continue;
+      a.merging = b.merging = true;
+      state.mergeQueue.push([a, b]);
+    }
+  });
+}
+
+function processMerges() {
+  for (const [a, b] of state.mergeQueue) {
+    const tier = a.tier;
+    const nx = (a.position.x + b.position.x) / 2;
+    const ny = (a.position.y + b.position.y) / 2;
+    state.phases.delete(a.id); state.phases.delete(b.id);
+    World.remove(state.engine.world, a);
+    World.remove(state.engine.world, b);
+    const nt = tier + 1;
+    const nb = makeBody(nt, nx, ny);
+    Body.setVelocity(nb, { x: (Math.random()-0.5) * 2, y: -2 });
+    World.add(state.engine.world, nb);
+
+    const now = state.time;
+    if (now - state.comboTimer < 1.0) state.combo++; else state.combo = 1;
+    state.comboTimer = now;
+    const mult = state.combo > 1 ? state.combo : 1;
+    const gained = SCORE_TABLE[nt] * mult;
+    state.score += gained;
+    scoreEl.textContent = state.score;
+
+    burst(nx, ny, PALETTE[tier % PALETTE.length], TIERS[nt].r);
+    state.pops.push({ x: nx, y: ny - TIERS[nt].r - 8, text: '+' + gained, life: 1, color: PALETTE[nt % PALETTE.length] });
+    state.shake = Math.min(22, 5 + nt * 1.8);
+    state.flash = Math.min(0.5, 0.12 + nt * 0.04);
+    state.bgPulse = 1;
+    blip(nt);
+    if (navigator.vibrate) navigator.vibrate(Math.min(60, 12 + nt * 5));
+    if (mult > 1) showCombo(mult);
+    if (nt > state.maxTier) {
+      state.maxTier = nt;
+      const bestBloom = Number(localStorage.getItem('mergedelic_bloom') || 0);
+      if (nt > bestBloom) localStorage.setItem('mergedelic_bloom', nt);
+      if (nt >= 4) showBanner(nt);
+    }
+    if (nt === TIERS.length - 1) { state.shake = 30; state.flash = 0.6; }
+  }
+  state.mergeQueue.length = 0;
+}
+
+function showCombo(mult) {
+  comboEl.textContent = 'x' + mult + ' combo!';
+  comboEl.style.transition = 'none';
+  comboEl.style.opacity = '1';
+  comboEl.style.transform = 'translateX(-50%) scale(1.25)';
+  requestAnimationFrame(() => {
+    comboEl.style.transition = 'transform .5s cubic-bezier(.2,1.4,.4,1), opacity .6s ease';
+    comboEl.style.opacity = '0';
+    comboEl.style.transform = 'translateX(-50%) scale(1)';
+  });
+}
+
+function showBanner(nt) {
+  bannerEl.textContent = nt === TIERS.length - 1 ? '✦ galaxy! ✦' : 'new! ' + NAMES[nt];
+  bannerEl.style.transition = 'none';
+  bannerEl.style.opacity = '1';
+  bannerEl.style.transform = 'translateX(-50%) scale(1.2) rotate(-3deg)';
+  requestAnimationFrame(() => {
+    bannerEl.style.transition = 'transform 1s cubic-bezier(.2,1.3,.4,1), opacity 1.2s ease';
+    bannerEl.style.opacity = '0';
+    bannerEl.style.transform = 'translateX(-50%) scale(1) rotate(0deg)';
+  });
+}
+
+function burst(x, y, color, r) {
+  const n = 14 + Math.floor(r / 6);
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 3 + Math.random() * (4 + r / 14);
+    state.particles.push({
+      x, y,
+      vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1.5,
+      r: 3 + Math.random() * 5,
+      color: PALETTE[Math.floor(Math.random() * PALETTE.length)],
+      life: 1, spin: (Math.random()-0.5) * 0.4, rot: Math.random() * 6,
+    });
+  }
+  // shockwave ring
+  state.particles.push({ ring: true, x, y, r: r * 0.4, max: r * 2.2, color, life: 1 });
+}
+
+function bodyList() {
+  return Composite.allBodies(state.engine.world).filter(b => b.tier !== undefined);
+}
+
+function drop() {
+  if (!state.running || !state.canDrop) return;
+  const tier = state.nextTier;
+  const r = TIERS[tier].r;
+  const x = Math.max(WALL + r, Math.min(W - WALL - r, state.dropX));
+  const b = makeBody(tier, x, DROP_Y);
+  b.born = state.time;
+  World.add(state.engine.world, b);
+  thud();
+  state.canDrop = false;
+  state.nextTier = state.queuedTier;
+  state.queuedTier = randDropTier();
+  setTimeout(() => { state.canDrop = true; }, 320);
+}
+
+function checkOver(dt) {
+  let over = false;
+  for (const b of bodyList()) {
+    if (state.time - b.born < 0.8) continue;
+    const speed = Math.hypot(b.velocity.x, b.velocity.y);
+    if ((b.position.y - TIERS[b.tier].r) < DANGER_Y && speed < 1.1) {
+      over = true; break;
+    }
+  }
+  if (over) {
+    state.overTimer += dt;
+    if (state.overTimer > 1.6) gameOver();
+  } else {
+    state.overTimer = Math.max(0, state.overTimer - dt * 2);
+  }
+}
+
+function gameOver() {
+  state.running = false;
+  const isBest = state.score >= state.best && state.score > 0;
+  if (state.score > state.best) {
+    state.best = state.score;
+    localStorage.setItem('mergedelic_best', state.best);
+    bestEl.textContent = state.best;
+  }
+  let bloomLine = state.maxTier >= 0 ? 'biggest bloom: ' + NAMES[state.maxTier] : 'no blooms merged';
+  if (state.maxTier >= 0) {
+    const prevBest = loadGarden().best ?? -1;
+    plantBloom(state.maxTier);
+    if (state.maxTier > prevBest) bloomLine += '  ·  🌱 new species!';
+  }
+  if (state.mode === 'daily') {
+    const today = dayKey(0);
+    const d = loadDaily();
+    if (d.date !== today) {
+      d.streak = (d.lastDate === dayKey(1)) ? (d.streak || 0) + 1 : 1;
+      d.date = today; d.best = 0; d.lastDate = today;
+    }
+    if (state.score > (d.best || 0)) d.best = state.score;
+    saveDaily(d);
+    dailyBtn.textContent = '☀ daily 🔥' + (d.streak || 1);
+    bloomLine += '  ·  🔥' + (d.streak || 1) + ' day streak';
+  }
+  finalScoreEl.textContent = state.score + ' pts' + (isBest ? '  ✦ best!' : '');
+  finalBloomEl.textContent = bloomLine;
+  reviveBtn.style.display = state.revived ? 'none' : '';
+  shareBtn.textContent = state.mode === 'daily' ? 'share result ➦' : 'share my score ➦';
+  overOverlay.classList.remove('hide');
+}
+
+function reset() {
+  if (state.engine) World.clear(state.engine.world, false);
+  state.phases.clear();
+  setupWorld();
+  state.score = 0; scoreEl.textContent = 0;
+  state.overTimer = 0; state.combo = 0; state.comboTimer = 0;
+  state.canDrop = true; state.particles.length = 0; state.pops.length = 0;
+  state.maxTier = -1; state.revived = false;
+  rng = state.mode === 'daily' ? makeRng(hashStr(dayKey(0))) : Math.random;
+  state.nextTier = randDropTier();
+  state.queuedTier = randDropTier();
+  state.running = true;
+}
+
+function startGame(mode) {
+  state.mode = mode || state.mode || 'endless';
+  initAudio();
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  startOverlay.classList.add('hide');
+  overOverlay.classList.add('hide');
+  reset();
+}
+dailyBtn.addEventListener('click', () => startGame('daily'));
+endlessBtn.addEventListener('click', () => startGame('endless'));
+document.getElementById('againBtn').addEventListener('click', () => startGame(state.mode));
+reviveBtn.addEventListener('click', revive);
+shareBtn.addEventListener('click', share);
+
+function playRewardedAd(onReward) {
+  // portal hook: when hosted on a game portal, call its rewarded-ad API and run
+  // onReward on completion. standalone fallback grants the reward directly.
+  onReward();
+}
+
+function revive() {
+  playRewardedAd(() => {
+    state.revived = true;
+    for (const b of bodyList()) {
+      if (b.position.y - TIERS[b.tier].r < DANGER_Y + 30) {
+        burst(b.position.x, b.position.y, PALETTE[b.tier % PALETTE.length], TIERS[b.tier].r);
+        state.phases.delete(b.id);
+        World.remove(state.engine.world, b);
+      }
+    }
+    state.overTimer = 0;
+    state.flash = 0.5;
+    state.canDrop = true;
+    overOverlay.classList.add('hide');
+    state.running = true;
+  });
+}
+
+function prettyDate() { return new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); }
+function shareText() {
+  const url = location.href.split('#')[0];
+  if (state.mode === 'daily') {
+    const d = loadDaily();
+    const reached = state.maxTier >= 0 ? TIER_EMOJI.slice(0, state.maxTier + 1).join('') : '·';
+    return `MERGEDELIC daily · ${prettyDate()}\nscore ${state.score} · ${state.maxTier >= 0 ? NAMES[state.maxTier] : 'no bloom'}\n${reached}\n🔥 ${d.streak || 1} day streak\n${url}`;
+  }
+  const bloom = state.maxTier >= 0 ? NAMES[state.maxTier] : 'seedling';
+  return `i scored ${state.score} in MERGEDELIC and reached the ${bloom} bloom. think you can beat me? ${url}`;
+}
+async function share() {
+  const txt = shareText();
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: 'MERGEDELIC', text: txt });
+    } else {
+      await navigator.clipboard.writeText(txt);
+      shareBtn.textContent = 'copied! ✓';
+    }
+  } catch (e) { /* share sheet dismissed */ }
+}
+
+function loadGarden() { try { return JSON.parse(localStorage.getItem('mergedelic_garden') || '{}'); } catch (e) { return {}; } }
+function saveGarden(g) { localStorage.setItem('mergedelic_garden', JSON.stringify(g)); }
+function plantBloom(tier) {
+  const g = loadGarden();
+  g.counts = g.counts || [];
+  g.counts[tier] = (g.counts[tier] || 0) + 1;
+  g.best = Math.max(g.best ?? -1, tier);
+  saveGarden(g);
+}
+function renderGarden() {
+  const g = loadGarden();
+  const best = g.best ?? -1;
+  let discovered = 0;
+  gardenGrid.innerHTML = '';
+  const real = ctx;
+  for (let t = 0; t < TIERS.length; t++) {
+    const found = t <= best;
+    if (found) discovered++;
+    const slot = document.createElement('div');
+    slot.className = 'slot' + (found ? '' : ' locked');
+    const cv = document.createElement('canvas');
+    cv.width = 132; cv.height = 132;
+    const sc = cv.getContext('2d');
+    sc.setTransform(2, 0, 0, 2, 0, 0);
+    if (found) {
+      ctx = sc;
+      drawBloom(33, 34, t, 0, 22 / TIERS[t].r);
+      ctx = real;
+    } else {
+      sc.beginPath(); sc.arc(33, 33, 20, 0, Math.PI * 2);
+      sc.fillStyle = 'rgba(255,243,218,.1)'; sc.fill();
+      sc.strokeStyle = 'rgba(255,243,218,.3)'; sc.lineWidth = 2; sc.stroke();
+      sc.fillStyle = 'rgba(255,243,218,.55)';
+      sc.font = '700 24px Fredoka, sans-serif'; sc.textAlign = 'center'; sc.textBaseline = 'middle';
+      sc.fillText('?', 33, 35);
+    }
+    const name = document.createElement('span');
+    name.className = 'sname';
+    name.textContent = found ? NAMES[t] : '???';
+    const cnt = document.createElement('span');
+    cnt.className = 'scount';
+    cnt.textContent = found && g.counts && g.counts[t] ? '×' + g.counts[t] : '';
+    slot.append(cv, name, cnt);
+    gardenGrid.appendChild(slot);
+  }
+  gardenProgress.textContent = discovered + ' / ' + TIERS.length + ' discovered';
+}
+function openGarden() { renderGarden(); startOverlay.classList.add('hide'); gardenOverlay.classList.remove('hide'); }
+function closeGarden() { gardenOverlay.classList.add('hide'); startOverlay.classList.remove('hide'); }
+gardenBtn.addEventListener('click', openGarden);
+gardenBackBtn.addEventListener('click', closeGarden);
+
+muteEl.addEventListener('click', (e) => {
+  e.stopPropagation();
+  state.muted = !state.muted;
+  localStorage.setItem('mergedelic_muted', state.muted ? '1' : '0');
+  muteEl.textContent = state.muted ? '🔇' : '🔊';
+  if (!state.muted) { initAudio(); if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); }
+});
+
+function pointerToWorld(e) {
+  const rect = canvas.getBoundingClientRect();
+  const px = (e.clientX - rect.left) / rect.width * W;
+  return Math.max(WALL, Math.min(W - WALL, px));
+}
+canvas.addEventListener('pointermove', (e) => { state.dropX = pointerToWorld(e); });
+canvas.addEventListener('pointerdown', (e) => { state.dropX = pointerToWorld(e); });
+canvas.addEventListener('pointerup', (e) => {
+  if (!state.running) return;
+  state.dropX = pointerToWorld(e);
+  drop();
+});
+
+function drawBloom(x, y, tier, angle, pop) {
+  const t = TIERS[tier];
+  const r = t.r * pop;
+  const col = PALETTE[tier % PALETTE.length];
+  const petalCol = PALETTE[(tier + 4) % PALETTE.length];
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+
+  // petals
+  ctx.fillStyle = petalCol;
+  ctx.strokeStyle = 'rgba(27,6,53,.9)';
+  ctx.lineWidth = Math.max(2, r * 0.05);
+  for (let i = 0; i < t.petals; i++) {
+    const a = (i / t.petals) * Math.PI * 2;
+    const px = Math.cos(a) * r * 0.82;
+    const py = Math.sin(a) * r * 0.82;
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(a);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r * 0.42, r * 0.26, 0, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+
+  // body
+  const grad = ctx.createRadialGradient(-r*0.3, -r*0.3, r*0.1, 0, 0, r);
+  grad.addColorStop(0, '#fff8e6');
+  grad.addColorStop(0.35, col);
+  grad.addColorStop(1, mix(col, '#1b0635', 0.35));
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fillStyle = grad; ctx.fill();
+  ctx.lineWidth = Math.max(2.5, r * 0.07);
+  ctx.strokeStyle = '#1b0635'; ctx.stroke();
+
+  // concentric ring
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.66, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,243,218,.55)';
+  ctx.lineWidth = Math.max(1.5, r * 0.04);
+  ctx.stroke();
+
+  // face (counter-rotate so eyes stay upright)
+  ctx.rotate(-angle);
+  const eyeR = r * 0.16;
+  const ex = r * 0.32;
+  const ey = -r * 0.12;
+  for (const sgn of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(sgn * ex, ey, eyeR, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.lineWidth = Math.max(1.5, r * 0.03); ctx.strokeStyle = '#1b0635'; ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(sgn * ex + Math.sin(state.time*1.5 + sgn)*eyeR*0.3, ey + eyeR*0.15, eyeR * 0.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#1b0635'; ctx.fill();
+  }
+  // smile
+  ctx.beginPath();
+  ctx.arc(0, r * 0.12, r * 0.34, 0.15 * Math.PI, 0.85 * Math.PI);
+  ctx.lineWidth = Math.max(2, r * 0.055); ctx.strokeStyle = '#1b0635';
+  ctx.lineCap = 'round'; ctx.stroke();
+  // cheeks
+  ctx.fillStyle = 'rgba(255,45,149,.5)';
+  for (const sgn of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(sgn * r * 0.5, r * 0.18, r * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // sparkle flair on the bigger blooms so the climb feels earned
+  if (tier >= 5) {
+    const spots = [[-0.5, -0.5], [0.55, -0.42], [-0.08, 0.52]];
+    const count = tier >= 9 ? 3 : tier >= 7 ? 2 : 1;
+    for (let i = 0; i < count; i++) {
+      const tw = 0.4 + 0.6 * Math.abs(Math.sin(state.time * 3 + i * 2.1 + tier));
+      drawSparkle(spots[i][0] * r, spots[i][1] * r, r * 0.13 * tw + r * 0.04, 0.45 + 0.55 * tw);
+    }
+  }
+  ctx.restore();
+}
+
+function drawSparkle(x, y, s, alpha) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = 'rgba(255,248,230,' + alpha + ')';
+  ctx.beginPath();
+  ctx.moveTo(0, -s);
+  ctx.quadraticCurveTo(0, 0, s, 0);
+  ctx.quadraticCurveTo(0, 0, 0, s);
+  ctx.quadraticCurveTo(0, 0, -s, 0);
+  ctx.quadraticCurveTo(0, 0, 0, -s);
+  ctx.fill();
+  ctx.restore();
+}
+
+function mix(a, b, t) {
+  const ca = hex(a), cb = hex(b);
+  const r = Math.round(ca[0] + (cb[0]-ca[0])*t);
+  const g = Math.round(ca[1] + (cb[1]-ca[1])*t);
+  const bl = Math.round(ca[2] + (cb[2]-ca[2])*t);
+  return `rgb(${r},${g},${bl})`;
+}
+function hex(h) {
+  const n = parseInt(h.slice(1), 16);
+  return [(n>>16)&255, (n>>8)&255, n&255];
+}
+
+function drawBackground() {
+  const pulse = state.bgPulse;
+  ctx.fillStyle = '#170228';
+  ctx.fillRect(0, 0, W, H);
+  const blobs = [
+    { x: 0.2, y: 0.25, c: '#7b2ff7', s: 0.9 },
+    { x: 0.85, y: 0.35, c: '#ff2d95', s: 0.8 },
+    { x: 0.5, y: 0.8, c: '#16d3c4', s: 1.0 },
+    { x: 0.15, y: 0.7, c: '#ff8c1a', s: 0.7 },
+  ];
+  ctx.globalCompositeOperation = 'screen';
+  for (let i = 0; i < blobs.length; i++) {
+    const b = blobs[i];
+    const dx = (b.x + Math.sin(state.time * 0.25 + i) * 0.06) * W;
+    const dy = (b.y + Math.cos(state.time * 0.2 + i * 1.7) * 0.06) * H;
+    const rad = (W * 0.5 * b.s) * (1 + pulse * 0.15);
+    const g = ctx.createRadialGradient(dx, dy, 0, dx, dy, rad);
+    g.addColorStop(0, b.c + 'cc');
+    g.addColorStop(1, b.c + '00');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  }
+  ctx.globalCompositeOperation = 'source-over';
+
+  // jar walls + danger line
+  ctx.strokeStyle = 'rgba(255,243,218,.85)';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(WALL, DROP_Y + 6);
+  ctx.lineTo(WALL, H);
+  ctx.moveTo(W - WALL, DROP_Y + 6);
+  ctx.lineTo(W - WALL, H);
+  ctx.stroke();
+
+  ctx.setLineDash([10, 10]);
+  ctx.strokeStyle = state.overTimer > 0 ? `rgba(255,45,149,${0.5 + 0.5*Math.sin(state.time*8)})` : 'rgba(255,243,218,.35)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(WALL, DANGER_Y); ctx.lineTo(W - WALL, DANGER_Y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawPreview() {
+  if (!state.running || !state.canDrop) return;
+  const tier = state.nextTier;
+  const r = TIERS[tier].r;
+  const x = Math.max(WALL + r, Math.min(W - WALL - r, state.dropX));
+  ctx.save();
+  ctx.globalAlpha = 0.28;
+  ctx.strokeStyle = 'rgba(255,243,218,.7)';
+  ctx.setLineDash([6, 8]); ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x, DROP_Y + r); ctx.lineTo(x, H); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+  drawBloom(x, DROP_Y, tier, 0, 1);
+  ctx.restore();
+}
+
+function drawNextChip() {
+  if (!state.running) return;
+  const tier = state.queuedTier;
+  const cx = WALL + 28, cy = 30, r = 16;
+  ctx.save();
+  ctx.font = '700 13px "Fredoka", sans-serif';
+  ctx.fillStyle = 'rgba(255,243,218,.7)';
+  ctx.textAlign = 'left';
+  ctx.fillText('next', cx + r + 9, cy + 5);
+  drawBloom(cx, cy, tier, state.time * 0.6, r / TIERS[tier].r);
+  ctx.restore();
+}
+
+function step(dt) {
+  if (state.running) {
+    Engine.update(state.engine, 1000 / 60);
+    processMerges();
+    checkOver(dt);
+  }
+  // particles
+  for (const p of state.particles) {
+    if (p.ring) {
+      p.r += (p.max - p.r) * 0.18;
+      p.life -= dt * 2.2;
+    } else {
+      p.vy += 0.25;
+      p.x += p.vx; p.y += p.vy;
+      p.vx *= 0.98;
+      p.rot += p.spin;
+      p.life -= dt * 1.3;
+    }
+  }
+  state.particles = state.particles.filter(p => p.life > 0);
+  for (const p of state.pops) { p.y -= 0.7; p.life -= dt * 0.9; }
+  state.pops = state.pops.filter(p => p.life > 0);
+  state.shake *= 0.85;
+  state.flash *= 0.86;
+  state.bgPulse *= 0.9;
+}
+
+function render() {
+  ctx.setTransform(sx, 0, 0, sy, 0, 0);
+  const shx = (Math.random() - 0.5) * state.shake;
+  const shy = (Math.random() - 0.5) * state.shake;
+  ctx.save();
+  ctx.translate(shx, shy);
+
+  drawBackground();
+
+  for (const b of bodyList()) {
+    if (b.pop > 1) b.pop += (1 - b.pop) * 0.2;
+    const ph = state.phases.get(b.id) || 0;
+    const wob = 1 + Math.sin(state.time * 3 + ph) * 0.025;
+    drawBloom(b.position.x, b.position.y, b.tier, b.angle, (b.pop || 1) * wob);
+  }
+
+  drawPreview();
+  drawNextChip();
+
+  // particles
+  for (const p of state.particles) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    if (p.ring) {
+      ctx.strokeStyle = p.color;
+      ctx.lineWidth = 6 * p.life;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.stroke();
+    } else {
+      ctx.save();
+      ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.r/2, -p.r/2, p.r, p.r);
+      ctx.restore();
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // score pops
+  ctx.textAlign = 'center';
+  ctx.font = '800 26px "Baloo 2", sans-serif';
+  for (const p of state.pops) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.strokeStyle = '#1b0635'; ctx.lineWidth = 4;
+    ctx.strokeText(p.text, p.x, p.y);
+    ctx.fillText(p.text, p.x, p.y);
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.restore();
+
+  if (state.flash > 0.01) {
+    ctx.fillStyle = `rgba(255,255,255,${state.flash})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  state.time += dt;
+  step(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+setupWorld();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
